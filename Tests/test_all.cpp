@@ -39,6 +39,7 @@ static World makeWorld(GameModeId mode, MapId map, int bots) {
     cfg.botCount = bots;
     cfg.fillWithBots = false;
     cfg.maxPlayers = 16;
+    cfg.warmupSeconds = 0;
     World w;
     w.reset(cfg, m);
     return w;
@@ -237,6 +238,62 @@ int main() {
     CHECK(difficultyDef(BotDifficulty::Elite).accuracy > difficultyDef(BotDifficulty::Recruit).accuracy, "diff scaling");
     CHECK(playersOnPoint(makeWorld(GameModeId::KingOfTheHill, MapId::SBSFoundry, 0), Vec2{1, 1}, 10, TeamId::None) == 0,
           "empty hill occupancy");
+    CHECK(modeRules(GameModeId::TeamDeathmatch).scoreLimit >= 40, "tdm score limit allows a full match");
+    CHECK(modeRules(GameModeId::TeamDeathmatch).matchSeconds >= 600.0f, "tdm time limit");
+
+    {
+        World w = makeWorld(GameModeId::TeamDeathmatch, MapId::SBSFoundry, 0);
+        CHECK(w.state() == MatchState::Playing, "tests skip warmup");
+        int pickups = 0;
+        for (const auto& u : w.pickups()) if (u.active) ++pickups;
+        CHECK(pickups > 0, "weapon pickups spawned");
+        const int a = w.addPlayer("A", PlayerClass::Assault, Faction::SBSAlliance, false, BotDifficulty::Recruit);
+        const int b = w.addPlayer("B", PlayerClass::Heavy, Faction::CyberDominion, false, BotDifficulty::Recruit);
+        PlayerState* pa = w.playerById(static_cast<uint8_t>(a));
+        PlayerState* pb = w.playerById(static_cast<uint8_t>(b));
+        CHECK(pa && pb, "score test players");
+        if (pa && pb) {
+            pb->pos = pa->pos + dirFromYaw(pa->yaw) * 1.6f;
+            PlayerInput in{};
+            in.yaw = pa->yaw;
+            in.fire = true;
+            w.setInput(static_cast<uint8_t>(a), in);
+            for (int i = 0; i < 180; ++i) w.tick(kTickDt);
+            CHECK(pa->kills == 0 || w.scoreA() == pa->kills, "one point per TDM kill");
+        }
+        CHECK(!w.matchOver(), "match does not end after a short firefight");
+    }
+
+    {
+        World warm;
+        GameMap m;
+        m.loadBuiltin(MapId::SBSFoundry);
+        MatchConfig cfg;
+        cfg.mode = GameModeId::TeamDeathmatch;
+        cfg.warmupSeconds = 8;
+        cfg.botCount = 0;
+        cfg.fillWithBots = false;
+        warm.reset(cfg, m);
+        warm.addPlayer("A", PlayerClass::Assault, Faction::SBSAlliance, true, BotDifficulty::Elite);
+        warm.addPlayer("B", PlayerClass::Heavy, Faction::CyberDominion, true, BotDifficulty::Elite);
+        for (int i = 0; i < 120; ++i) warm.tick(kTickDt);
+        CHECK(warm.state() == MatchState::Warmup, "warmup lasts");
+        CHECK(warm.scoreA() == 0 && warm.scoreB() == 0, "no scoring during warmup");
+        CHECK(!warm.matchOver(), "warmup cannot end the match");
+    }
+
+    {
+        SaveData d;
+        d.playerName = "Binder";
+        d.input.fire = -3;
+        d.input.moveForward = 8;
+        d.input.sprint = 225;
+        CHECK(SaveSystem::store(d), "bind save write");
+        SaveData l = SaveSystem::load();
+        CHECK(l.input.fire == -3, "saved fire bind");
+        CHECK(l.input.moveForward == 8, "saved move bind");
+        CHECK(l.input.sprint == 225, "saved sprint bind");
+    }
 
     std::printf("\nSBS Wars tests: %d passed, %d failed\n", gPassed, gFailed);
     return gFailed == 0 ? 0 : 1;

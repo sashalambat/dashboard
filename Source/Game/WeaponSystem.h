@@ -92,6 +92,13 @@ struct CombatEvent {
     const char* text = "";
 };
 
+struct WeaponPickup {
+    bool active = false;
+    WeaponId id = WeaponId::SBSAssaultRifle;
+    Vec2 pos;
+    float respawn = 0.0f;
+};
+
 void resetWeapon(WeaponRuntime& w, WeaponId id, int upgradeLevel);
 void fireWeapon(PlayerState& player, class World& world, bool alt);
 void tickWeapons(PlayerState& player, float dt);

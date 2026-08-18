@@ -5,6 +5,7 @@
 #include "Engine/Protocol.h"
 #include "Engine/Renderer.h"
 #include "Engine/SBSLog.h"
+#include "Game/InputMap.h"
 #include "Game/ServerHost.h"
 #include "Game/UISystem.h"
 
@@ -38,18 +39,24 @@ UdpChannel clientNet_;
 float discoverAcc_ = 0;
 SaveData save_;
 MatchConfig pending_;
+int waitingBind_ = -1;
+int weaponSlot_ = 0;
+bool lastOffline_ = true;
+bool resultsRecorded_ = false;
 
 void applyClassCursor() {
     save_.preferredClass = static_cast<PlayerClass>(clampi(cursor_, 0, 4));
 }
 
 void startLocalMatch(bool dedicatedLike, bool offline) {
+    lastOffline_ = offline;
+    resultsRecorded_ = false;
     pending_.mode = GameModeId::TeamDeathmatch;
     pending_.map = MapId::SBSFoundry;
-    pending_.botCount = 8;
+    pending_.botCount = 6;
     pending_.maxPlayers = 16;
     pending_.fillWithBots = true;
-    pending_.difficulty = BotDifficulty::Veteran;
+    pending_.difficulty = BotDifficulty::Recruit;
     pending_.sessionName = "SBS Wars LAN";
     pending_.listenServer = !dedicatedLike;
     pending_.dedicated = dedicatedLike && !offline;
@@ -62,7 +69,10 @@ void startLocalMatch(bool dedicatedLike, bool offline) {
     if (id >= 0) localId_ = static_cast<uint8_t>(id);
     inMatch_ = true;
     screen_ = UiScreen::Playing;
+    weaponSlot_ = 0;
     status_ = "Match live";
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+    SDL_ShowCursor(SDL_DISABLE);
 }
 
 void sendDiscover() {
@@ -186,6 +196,111 @@ void stopMatch() {
     host_.stop();
     clientNet_.close();
     screen_ = UiScreen::MainMenu;
+    cursor_ = 0;
+    waitingBind_ = -1;
+    SDL_SetRelativeMouseMode(SDL_FALSE);
+    SDL_ShowCursor(SDL_ENABLE);
+}
+
+bool isGameplayScreen() {
+    return screen_ == UiScreen::Playing || screen_ == UiScreen::Scoreboard || screen_ == UiScreen::Spectator;
+}
+
+void setCursorVisible(bool show) {
+    SDL_SetRelativeMouseMode(show ? SDL_FALSE : SDL_TRUE);
+    SDL_ShowCursor(show ? SDL_ENABLE : SDL_DISABLE);
+}
+
+void nudgeOption(int dir) {
+    if (screen_ == UiScreen::Options) {
+        if (cursor_ == 1) save_.graphics.quality = save_.graphics.quality ? 0 : 1;
+        if (cursor_ == 2) {
+            if (dir > 0) {
+                save_.graphics.width = save_.graphics.width >= 1920 ? 1280 : 1920;
+                save_.graphics.height = save_.graphics.width == 1920 ? 1080 : 720;
+            } else {
+                save_.graphics.width = save_.graphics.width <= 1280 ? 1920 : 1280;
+                save_.graphics.height = save_.graphics.width == 1920 ? 1080 : 720;
+            }
+        }
+        if (cursor_ == 3) save_.input.mouseSensitivity = clampf(save_.input.mouseSensitivity + dir * 0.04f, 0.04f, 1.5f);
+        if (cursor_ == 4) save_.audio.master = clampf(save_.audio.master + dir * 0.1f, 0.0f, 1.0f);
+    }
+    if (screen_ == UiScreen::Settings && cursor_ == static_cast<int>(BindSlot::Count)) {
+        save_.input.mouseSensitivity = clampf(save_.input.mouseSensitivity + dir * 0.04f, 0.04f, 1.5f);
+    }
+}
+
+void activateMenu(AudioEngine& audio) {
+    audio.playUi("select");
+    if (screen_ == UiScreen::MainMenu) {
+        if (cursor_ == 0) startLocalMatch(false, false);
+        else if (cursor_ == 1) startLocalMatch(true, false);
+        else if (cursor_ == 2) {
+            screen_ = UiScreen::LanBrowser;
+            sendDiscover();
+            cursor_ = 0;
+        } else if (cursor_ == 3) startLocalMatch(false, true);
+        else if (cursor_ == 4) {
+            screen_ = UiScreen::Options;
+            cursor_ = 0;
+        } else if (cursor_ == 5) {
+            screen_ = UiScreen::Statistics;
+            cursor_ = 0;
+        } else if (cursor_ == 6) {
+            screen_ = UiScreen::Settings;
+            cursor_ = 0;
+        } else if (cursor_ == 7) running_ = false;
+    } else if (screen_ == UiScreen::ClassSelect) {
+        applyClassCursor();
+        screen_ = UiScreen::SpawnMenu;
+        cursor_ = 0;
+    } else if (screen_ == UiScreen::SpawnMenu) {
+        if (cursor_ == 0) {
+            screen_ = UiScreen::Playing;
+            setCursorVisible(false);
+        }
+        if (cursor_ == 1) screen_ = UiScreen::ClassSelect;
+        if (cursor_ == 2) {
+            PlayerInput in{};
+            in.requestSpectate = true;
+            activeWorld().setInput(localId_, in);
+            screen_ = UiScreen::Spectator;
+        }
+        if (cursor_ == 3) stopMatch();
+    } else if (screen_ == UiScreen::LanBrowser) {
+        if (cursor_ < static_cast<int>(servers_.size())) joinServer(servers_[static_cast<size_t>(cursor_)]);
+    } else if (screen_ == UiScreen::Options) {
+        if (cursor_ == 5) {
+            SaveSystem::store(save_);
+            screen_ = UiScreen::MainMenu;
+            cursor_ = 0;
+        } else {
+            nudgeOption(1);
+        }
+    } else if (screen_ == UiScreen::Settings) {
+        const int bindCount = static_cast<int>(BindSlot::Count);
+        if (cursor_ == bindCount + 1) {
+            SaveSystem::store(save_);
+            screen_ = UiScreen::MainMenu;
+            cursor_ = 0;
+        } else if (cursor_ == bindCount) {
+            nudgeOption(1);
+        } else if (cursor_ >= 0 && cursor_ < bindCount) {
+            waitingBind_ = cursor_;
+            status_ = "Press a key or mouse button...";
+        }
+    } else if (screen_ == UiScreen::Statistics) {
+        screen_ = UiScreen::MainMenu;
+        cursor_ = 0;
+    } else if (screen_ == UiScreen::Results) {
+        if (cursor_ <= 0) {
+            stopMatch();
+        } else {
+            stopMatch();
+            startLocalMatch(false, lastOffline_);
+        }
+    }
 }
 
 } // namespace
@@ -266,10 +381,17 @@ int runClient(int argc, char** argv) {
     }
 
     SDL_SetRelativeMouseMode(inMatch_ ? SDL_TRUE : SDL_FALSE);
+    SDL_ShowCursor(inMatch_ ? SDL_DISABLE : SDL_ENABLE);
     auto last = std::chrono::steady_clock::now();
     float inputYaw = 0.0f;
-    bool tab = false;
     std::string lastAnn;
+
+    auto mapMouse = [&](int mx, int my, int& fx, int& fy) {
+        int ww = 1, wh = 1;
+        SDL_GetWindowSize(window, &ww, &wh);
+        fx = mx * renderer.frameWidth() / std::max(1, ww);
+        fy = my * renderer.frameHeight() / std::max(1, wh);
+    };
 
     while (running_) {
         auto now = std::chrono::steady_clock::now();
@@ -280,15 +402,45 @@ int runClient(int argc, char** argv) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) running_ = false;
+
+            if (waitingBind_ >= 0) {
+                if (e.type == SDL_KEYDOWN) {
+                    if (e.key.keysym.sym == SDLK_ESCAPE) {
+                        waitingBind_ = -1;
+                        status_.clear();
+                    } else {
+                        bindRef(save_.input, static_cast<BindSlot>(waitingBind_)) = static_cast<int>(e.key.keysym.scancode);
+                        waitingBind_ = -1;
+                        status_ = "Bind saved";
+                        SaveSystem::store(save_);
+                    }
+                } else if (e.type == SDL_MOUSEBUTTONDOWN) {
+                    bindRef(save_.input, static_cast<BindSlot>(waitingBind_)) = encodeMouseBind(e.button.button);
+                    waitingBind_ = -1;
+                    status_ = "Bind saved";
+                    SaveSystem::store(save_);
+                }
+                continue;
+            }
+
+            const bool menu = !isGameplayScreen();
             if (e.type == SDL_KEYDOWN) {
                 const SDL_Keycode k = e.key.keysym.sym;
-                if (!inMatch_) {
+                if (menu) {
                     if (k == SDLK_ESCAPE) {
                         if (screen_ == UiScreen::MainMenu) running_ = false;
-                        else screen_ = UiScreen::MainMenu;
+                        else if (screen_ == UiScreen::SpawnMenu) {
+                            screen_ = UiScreen::Playing;
+                            setCursorVisible(false);
+                        } else {
+                            screen_ = UiScreen::MainMenu;
+                            cursor_ = 0;
+                        }
                     }
                     if (k == SDLK_UP) cursor_ = std::max(0, cursor_ - 1);
-                    if (k == SDLK_DOWN) cursor_ = cursor_ + 1;
+                    if (k == SDLK_DOWN) cursor_ = std::min(ui.menuCount(screen_) - 1, cursor_ + 1);
+                    if (k == SDLK_LEFT) nudgeOption(-1);
+                    if (k == SDLK_RIGHT) nudgeOption(1);
                     if (k == SDLK_TAB && screen_ == UiScreen::ClassSelect) {
                         save_.preferredFaction = save_.preferredFaction == Faction::SBSAlliance ? Faction::CyberDominion : Faction::SBSAlliance;
                     }
@@ -298,64 +450,49 @@ int runClient(int argc, char** argv) {
                         SaveSystem::store(save_);
                         status_ = "Favorite saved";
                     }
-                    if (k == SDLK_RETURN) {
-                        audio.playUi("select");
-                        if (screen_ == UiScreen::MainMenu) {
-                            if (cursor_ == 0) startLocalMatch(false, false);
-                            else if (cursor_ == 1) startLocalMatch(true, false);
-                            else if (cursor_ == 2) {
-                                screen_ = UiScreen::LanBrowser;
-                                sendDiscover();
-                                cursor_ = 0;
-                            } else if (cursor_ == 3) startLocalMatch(false, true);
-                            else if (cursor_ == 4) {
-                                screen_ = UiScreen::Options;
-                                cursor_ = 0;
-                            } else if (cursor_ == 5) {
-                                screen_ = UiScreen::Statistics;
-                                cursor_ = 0;
-                            } else if (cursor_ == 6) {
-                                screen_ = UiScreen::Settings;
-                                cursor_ = 0;
-                            } else if (cursor_ == 7) running_ = false;
-                        } else if (screen_ == UiScreen::ClassSelect) {
-                            applyClassCursor();
-                            screen_ = UiScreen::SpawnMenu;
-                            cursor_ = 0;
-                        } else if (screen_ == UiScreen::SpawnMenu) {
-                            if (cursor_ == 0) screen_ = UiScreen::Playing;
-                            if (cursor_ == 1) screen_ = UiScreen::ClassSelect;
-                            if (cursor_ == 2) {
-                                PlayerInput in{};
-                                in.requestSpectate = true;
-                                activeWorld().setInput(localId_, in);
-                                screen_ = UiScreen::Spectator;
-                            }
-                            if (cursor_ == 3) stopMatch();
-                        } else if (screen_ == UiScreen::LanBrowser) {
-                            if (cursor_ < static_cast<int>(servers_.size())) joinServer(servers_[static_cast<size_t>(cursor_)]);
-                        } else if (screen_ == UiScreen::Options || screen_ == UiScreen::Settings || screen_ == UiScreen::Statistics || screen_ == UiScreen::Results) {
-                            screen_ = UiScreen::MainMenu;
-                            cursor_ = 0;
-                        }
+                    if (k == SDLK_RETURN || k == SDLK_KP_ENTER || k == SDLK_SPACE) {
+                        activateMenu(audio);
                     }
                 } else {
                     if (k == SDLK_ESCAPE) {
                         screen_ = UiScreen::SpawnMenu;
-                        SDL_SetRelativeMouseMode(SDL_FALSE);
+                        setCursorVisible(true);
+                        cursor_ = 0;
                     }
-                    if (k == SDLK_TAB) tab = true;
                     if (k == SDLK_F1) {
                         PlayerState* me = activeWorld().playerById(localId_);
                         if (me) me->upgradeLevel = clampi(me->upgradeLevel + 1, 0, 5);
                     }
                 }
             }
-            if (e.type == SDL_KEYUP && e.key.keysym.sym == SDLK_TAB) tab = false;
-            if (e.type == SDL_MOUSEMOTION && inMatch_ && screen_ == UiScreen::Playing) {
-                inputYaw += e.motion.xrel * save_.input.mouseSensitivity * 0.01f;
+            if (e.type == SDL_MOUSEMOTION) {
+                if (inMatch_ && screen_ == UiScreen::Playing) {
+                    inputYaw += e.motion.xrel * save_.input.mouseSensitivity * 0.08f;
+                } else if (menu) {
+                    int fx = 0, fy = 0;
+                    mapMouse(e.motion.x, e.motion.y, fx, fy);
+                    const int hit = ui.hitTest(screen_, fx, fy, static_cast<int>(servers_.size()));
+                    if (hit >= 0) cursor_ = hit;
+                }
+            }
+            if (e.type == SDL_MOUSEWHEEL && inMatch_ && screen_ == UiScreen::Playing) {
+                weaponSlot_ = e.wheel.y > 0 ? 0 : 1;
+            }
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT && menu) {
+                int fx = 0, fy = 0;
+                mapMouse(e.button.x, e.button.y, fx, fy);
+                const int hit = ui.hitTest(screen_, fx, fy, static_cast<int>(servers_.size()));
+                if (hit >= 0) {
+                    cursor_ = hit;
+                    activateMenu(audio);
+                } else if (screen_ == UiScreen::Results) {
+                    cursor_ = 0;
+                    activateMenu(audio);
+                }
             }
         }
+
+        cursor_ = clampi(cursor_, 0, std::max(0, ui.menuCount(screen_) - 1));
 
         discoverAcc_ += dt;
         if (discoverAcc_ > 2.0f) {
@@ -371,20 +508,24 @@ int runClient(int argc, char** argv) {
             if (me && screen_ == UiScreen::Playing) {
                 const Uint8* keys = SDL_GetKeyboardState(nullptr);
                 PlayerInput in = me->input;
-                in.moveY = (keys[SDL_SCANCODE_W] ? 1.0f : 0.0f) + (keys[SDL_SCANCODE_S] ? -1.0f : 0.0f);
-                in.moveX = (keys[SDL_SCANCODE_D] ? 1.0f : 0.0f) + (keys[SDL_SCANCODE_A] ? -1.0f : 0.0f);
-                // convert WASD from view space
+                const float forward = (bindHeld(keys, save_.input.moveForward) ? 1.0f : 0.0f) +
+                                      (bindHeld(keys, save_.input.moveBack) ? -1.0f : 0.0f);
+                const float strafe = (bindHeld(keys, save_.input.moveRight) ? 1.0f : 0.0f) +
+                                     (bindHeld(keys, save_.input.moveLeft) ? -1.0f : 0.0f);
                 const Vec2 f = dirFromYaw(inputYaw);
-                const Vec2 r{-f.y, f.x};
-                const Vec2 wish = f * in.moveY + r * in.moveX;
+                const Vec2 right{-f.y, f.x};
+                const Vec2 wish = f * forward + right * strafe;
                 in.moveX = wish.x;
                 in.moveY = wish.y;
                 in.yaw = inputYaw;
-                in.fire = (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_LEFT)) != 0;
-                in.altFire = (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON(SDL_BUTTON_RIGHT)) != 0;
-                in.reload = keys[SDL_SCANCODE_R] != 0;
-                in.sprint = keys[SDL_SCANCODE_LSHIFT] != 0;
-                in.weaponSlot = keys[SDL_SCANCODE_2] ? 1 : 0;
+                in.jump = bindHeld(keys, save_.input.jump);
+                in.fire = bindHeld(keys, save_.input.fire);
+                in.altFire = bindHeld(keys, save_.input.altFire);
+                in.reload = bindHeld(keys, save_.input.reload);
+                in.sprint = bindHeld(keys, save_.input.sprint);
+                if (bindHeld(keys, save_.input.weapon1)) weaponSlot_ = 0;
+                if (bindHeld(keys, save_.input.weapon2)) weaponSlot_ = 1;
+                in.weaponSlot = static_cast<uint8_t>(clampi(weaponSlot_, 0, 1));
                 activeWorld().setInput(localId_, in);
                 if (usingRemote_ && clientNet_.valid()) {
                     uint8_t buf[128];
@@ -401,18 +542,27 @@ int runClient(int argc, char** argv) {
             }
             if (activeWorld().matchOver()) {
                 screen_ = UiScreen::Results;
-                save_.stats.matchesPlayed += 1;
-                if (me) {
-                    save_.stats.kills += me->kills;
-                    save_.stats.deaths += me->deaths;
-                    save_.stats.captures += me->captures;
+                cursor_ = 0;
+                if (!resultsRecorded_) {
+                    resultsRecorded_ = true;
+                    save_.stats.matchesPlayed += 1;
+                    if (me) {
+                        save_.stats.kills += me->kills;
+                        save_.stats.deaths += me->deaths;
+                        save_.stats.captures += me->captures;
+                        if (me->team == TeamId::Alliance && activeWorld().scoreA() > activeWorld().scoreB()) save_.stats.wins += 1;
+                        if (me->team == TeamId::Dominion && activeWorld().scoreB() > activeWorld().scoreA()) save_.stats.wins += 1;
+                    }
+                    SaveSystem::store(save_);
                 }
-                SaveSystem::store(save_);
                 inMatch_ = false;
-                SDL_SetRelativeMouseMode(SDL_FALSE);
+                setCursorVisible(true);
             }
-            if (tab) screen_ = UiScreen::Scoreboard;
-            else if (screen_ == UiScreen::Scoreboard) screen_ = UiScreen::Playing;
+            if (screen_ == UiScreen::Playing || screen_ == UiScreen::Scoreboard) {
+                const Uint8* keys = SDL_GetKeyboardState(nullptr);
+                if (bindHeld(keys, save_.input.scoreboard)) screen_ = UiScreen::Scoreboard;
+                else if (screen_ == UiScreen::Scoreboard) screen_ = UiScreen::Playing;
+            }
         }
 
         World* drawWorld = inMatch_ || screen_ == UiScreen::Results ? &activeWorld() : nullptr;
@@ -420,14 +570,13 @@ int runClient(int argc, char** argv) {
             const bool spec = screen_ == UiScreen::Spectator || (drawWorld->playerById(localId_) && drawWorld->playerById(localId_)->spectating);
             renderer.renderWorld(*drawWorld, localId_, spec);
         } else {
-            // clear via empty fill
             World dummy;
             GameMap map;
             map.loadBuiltin(MapId::CyberCore);
             dummy.reset(MatchConfig{}, map);
             renderer.renderWorld(dummy, 0, true);
         }
-        ui.draw(renderer, screen_, save_, drawWorld, localId_, servers_, cursor_, status_);
+        ui.draw(renderer, screen_, save_, drawWorld, localId_, servers_, cursor_, status_, waitingBind_);
         renderer.present();
     }
 

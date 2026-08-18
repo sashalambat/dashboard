@@ -175,16 +175,21 @@ void Renderer::renderSprites(const World& world, const PlayerState& view) {
     const Vec2 dir = dirFromYaw(view.yaw);
     const Vec2 plane{-dir.y * 0.66f, dir.x * 0.66f};
     const float invDet = 1.0f / (plane.x * dir.y - dir.x * plane.y);
-    for (const auto& p : world.players()) {
-        if (!p.active || p.id == view.id || (!p.alive && !p.spectating)) continue;
-        if (!p.alive) continue;
-        const Vec2 rel = p.pos - view.pos;
+    auto project = [&](const Vec2& pos, int& screenX, int& spriteH, float& ty) -> bool {
+        const Vec2 rel = pos - view.pos;
         const float tx = invDet * (dir.y * rel.x - dir.x * rel.y);
-        const float ty = invDet * (-plane.y * rel.x + plane.x * rel.y);
-        if (ty <= 0.05f) continue;
-        const int screenX = static_cast<int>((frame_.width / 2) * (1.0f + tx / ty));
-        const int spriteH = std::abs(static_cast<int>(frame_.height / ty));
-        const int spriteW = spriteH / 2;
+        ty = invDet * (-plane.y * rel.x + plane.x * rel.y);
+        if (ty <= 0.05f) return false;
+        screenX = static_cast<int>((frame_.width / 2) * (1.0f + tx / ty));
+        spriteH = std::abs(static_cast<int>(frame_.height / ty));
+        return true;
+    };
+    for (const auto& p : world.players()) {
+        if (!p.active || p.id == view.id || !p.alive) continue;
+        int screenX = 0, spriteH = 0;
+        float ty = 0;
+        if (!project(p.pos, screenX, spriteH, ty)) continue;
+        const int spriteW = std::max(2, spriteH / 2);
         Color body = factionColor(p.faction);
         for (int sx = -spriteW / 2; sx < spriteW / 2; ++sx) {
             const int x = screenX + sx;
@@ -199,20 +204,131 @@ void Renderer::renderSprites(const World& world, const PlayerState& view) {
             }
         }
     }
+    for (const auto& u : world.pickups()) {
+        if (!u.active) continue;
+        int screenX = 0, spriteH = 0;
+        float ty = 0;
+        if (!project(u.pos, screenX, spriteH, ty)) continue;
+        const int spriteW = std::max(3, spriteH / 5);
+        const int h = std::max(4, spriteH / 4);
+        Color c = Color::rgb(255, 200, 60);
+        switch (u.id) {
+            case WeaponId::SBSCombatShotgun: c = Color::rgb(200, 140, 40); break;
+            case WeaponId::SBSMachineGun: c = Color::rgb(160, 80, 40); break;
+            case WeaponId::SBSSniperRifle: c = Color::rgb(80, 200, 120); break;
+            case WeaponId::Railgun: c = Color::rgb(80, 220, 255); break;
+            case WeaponId::RocketLauncher: c = Color::rgb(255, 80, 40); break;
+            case WeaponId::PlasmaRifle: c = Color::rgb(180, 80, 255); break;
+            case WeaponId::PulseCannon: c = Color::rgb(255, 220, 80); break;
+            case WeaponId::Grenade: c = Color::rgb(80, 255, 80); break;
+            default: break;
+        }
+        for (int sx = -spriteW / 2; sx <= spriteW / 2; ++sx) {
+            const int x = screenX + sx;
+            if (x < 0 || x >= frame_.width) continue;
+            if (ty > frame_.depth[static_cast<size_t>(x)]) continue;
+            for (int sy = 0; sy < h; ++sy) {
+                put(x, frame_.height / 2 + spriteH / 6 - sy, c);
+            }
+        }
+    }
 }
 
 void Renderer::drawWeapon(const PlayerState& p, float bob) {
     const int w = frame_.width;
     const int h = frame_.height;
-    const int ox = w / 2 - 40 + static_cast<int>(std::sin(bob) * 6.0f);
-    const int oy = h - 70 + static_cast<int>(std::fabs(std::cos(bob)) * 4.0f) + static_cast<int>(p.weapons[p.weaponSlot].recoilPitch * 80.0f);
-    Color metal = (p.faction == Faction::CyberDominion) ? Color::rgb(40, 180, 200) : Color::rgb(180, 120, 50);
-    for (int y = 0; y < 55; ++y) {
-        for (int x = 0; x < 80; ++x) {
-            if (x > 20 && y > 18 && x < 70 && y < 32) put(ox + x, oy + y, metal);
-            if (x > 60 && y > 20 && x < 78 && y < 28) put(ox + x, oy + y, Color::rgb(20, 20, 20));
-            if (p.firing && x > 74 && y > 21 && y < 27) put(ox + x, oy + y, Color::rgb(255, 200, 60));
-        }
+    const int kick = static_cast<int>(p.weapons[p.weaponSlot].recoilPitch * 70.0f);
+    const int ox = w / 2 - 70 + static_cast<int>(std::sin(bob) * 8.0f);
+    const int oy = h - 110 + static_cast<int>(std::fabs(std::cos(bob)) * 5.0f) + kick;
+    const WeaponId id = p.weapons[p.weaponSlot].id;
+    Color metal = (p.faction == Faction::CyberDominion) ? Color::rgb(50, 200, 220) : Color::rgb(210, 140, 50);
+    Color dark = Color::rgb(28, 24, 20);
+    Color grip = Color::rgb(70, 50, 35);
+    Color accent = Color::rgb(255, 150, 40);
+    if (p.faction == Faction::CyberDominion) accent = Color::rgb(40, 220, 255);
+    auto box = [&](int x, int y, int bw, int bh, Color c) {
+        for (int yy = 0; yy < bh; ++yy)
+            for (int xx = 0; xx < bw; ++xx)
+                put(ox + x + xx, oy + y + yy, c);
+    };
+    box(18, 70, 46, 28, Color::rgb(210, 170, 130));
+    box(88, 72, 42, 26, Color::rgb(210, 170, 130));
+    int barrel = 70;
+    int bodyW = 90;
+    int magH = 22;
+    switch (id) {
+        case WeaponId::SBSCombatShotgun:
+            barrel = 78;
+            bodyW = 100;
+            magH = 10;
+            metal = Color::rgb(160, 110, 50);
+            break;
+        case WeaponId::SBSMachineGun:
+            barrel = 88;
+            bodyW = 110;
+            magH = 36;
+            metal = Color::rgb(90, 95, 90);
+            break;
+        case WeaponId::SBSSniperRifle:
+            barrel = 110;
+            bodyW = 80;
+            magH = 14;
+            metal = Color::rgb(40, 90, 50);
+            break;
+        case WeaponId::Railgun:
+            barrel = 120;
+            bodyW = 70;
+            magH = 16;
+            metal = Color::rgb(40, 180, 220);
+            break;
+        case WeaponId::RocketLauncher:
+            barrel = 64;
+            bodyW = 120;
+            magH = 28;
+            metal = Color::rgb(120, 70, 40);
+            break;
+        case WeaponId::PlasmaRifle:
+            barrel = 72;
+            bodyW = 86;
+            magH = 20;
+            metal = Color::rgb(140, 70, 210);
+            break;
+        case WeaponId::PulseCannon:
+            barrel = 60;
+            bodyW = 96;
+            magH = 24;
+            metal = Color::rgb(220, 180, 50);
+            break;
+        case WeaponId::Grenade:
+            barrel = 8;
+            bodyW = 36;
+            magH = 8;
+            metal = Color::rgb(50, 140, 60);
+            break;
+        default:
+            break;
+    }
+    box(20, 38, bodyW, 22, metal);
+    box(20, 36, bodyW, 4, accent);
+    box(18, 42, 16, 28, grip);
+    box(28, 58, 10, magH, dark);
+    box(20 + bodyW - 8, 40, barrel, 10, dark);
+    if (id == WeaponId::SBSSniperRifle || id == WeaponId::Railgun) {
+        box(36, 28, 28, 10, Color::rgb(20, 20, 20));
+        box(44, 30, 12, 6, Color::rgb(80, 200, 255));
+    }
+    if (id == WeaponId::RocketLauncher) {
+        box(24, 32, bodyW - 10, 28, metal);
+        box(20 + bodyW, 36, 40, 18, dark);
+    }
+    if (id == WeaponId::Grenade) {
+        box(40, 48, 28, 28, metal);
+        box(48, 42, 10, 10, dark);
+    }
+    if (p.firing) {
+        const int mx = 20 + bodyW + barrel - 4;
+        box(mx, 36, 18, 16, Color::rgb(255, 220, 80));
+        box(mx + 10, 32, 14, 24, Color::rgb(255, 140, 40));
     }
 }
 

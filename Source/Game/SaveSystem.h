@@ -25,15 +25,20 @@ struct AudioSettings {
 };
 
 struct InputSettings {
-    float mouseSensitivity = 0.12f;
+    float mouseSensitivity = 0.22f;
     bool invertY = false;
-    int moveForward = 26; // W
-    int moveBack = 22;    // S
-    int moveLeft = 4;     // A
-    int moveRight = 7;    // D
-    int jump = 44;
-    int reload = 21;
-    int fire = 1;
+    int moveForward = 26; // SDL_SCANCODE_W
+    int moveBack = 22;    // SDL_SCANCODE_S
+    int moveLeft = 4;     // SDL_SCANCODE_A
+    int moveRight = 7;    // SDL_SCANCODE_D
+    int jump = 44;        // SDL_SCANCODE_SPACE
+    int sprint = 225;     // SDL_SCANCODE_LSHIFT
+    int reload = 21;      // SDL_SCANCODE_R
+    int weapon1 = 30;     // SDL_SCANCODE_1
+    int weapon2 = 31;     // SDL_SCANCODE_2
+    int scoreboard = 43;  // SDL_SCANCODE_TAB
+    int fire = -1;        // SDL_BUTTON_LEFT
+    int altFire = -3;     // SDL_BUTTON_RIGHT
 };
 
 struct MatchStats {

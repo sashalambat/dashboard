@@ -109,7 +109,7 @@ struct ModeRules {
 inline ModeRules modeRules(GameModeId id) {
     switch (id) {
         case GameModeId::Deathmatch:
-            return {id, 480.0f, 30, 6, false, false, false, false};
+            return {id, 600.0f, 25, 8, false, false, false, false};
         case GameModeId::TeamDeathmatch:
             return {id, 600.0f, 50, 8, true, false, false, false};
         case GameModeId::CaptureTheFlag:
@@ -117,7 +117,7 @@ inline ModeRules modeRules(GameModeId id) {
         case GameModeId::Domination:
             return {id, 720.0f, 200, 8, true, false, true, false};
         case GameModeId::KingOfTheHill:
-            return {id, 480.0f, 100, 8, true, false, false, true};
+            return {id, 600.0f, 100, 8, true, false, false, true};
         default:
             return {};
     }

@@ -30,6 +30,8 @@ public:
     void drawRect(int x, int y, int w, int h, Color c);
     void drawText(int x, int y, const std::string& text, Color c, int scale = 1);
     void drawTextCenter(int y, const std::string& text, Color c, int scale = 2);
+    int frameWidth() const { return frame_.width; }
+    int frameHeight() const { return frame_.height; }
     int width() const { return outputW_; }
     int height() const { return outputH_; }
     SDL_Renderer* sdl() const { return renderer_; }

@@ -18,6 +18,7 @@ struct MatchConfig {
     bool listenServer = true;
     float timeLimit = 0.0f;
     int scoreLimit = 0;
+    int warmupSeconds = -1;
     std::string sessionName = "SBS Wars LAN";
 };
 
@@ -56,6 +57,7 @@ public:
     TeamId hillOwner() const { return hillOwner_; }
     const std::vector<CombatEvent>& events() const { return events_; }
     const char* lastAnnouncement() const { return lastAnnounce_.c_str(); }
+    const std::array<WeaponPickup, 16>& pickups() const { return pickups_; }
     int humanCount() const;
     int botCount() const;
     int aliveCount() const;
@@ -74,6 +76,7 @@ private:
     void tickProjectiles(float dt);
     void tickMode(float dt);
     void tickPickups(float dt);
+    void placePickups();
     void hitscan(PlayerState& attacker, const WeaponDef& def, const Vec2& origin, float yaw);
 
     MatchConfig cfg_{};
@@ -96,6 +99,7 @@ private:
     float hillHold_ = 0.0f;
     std::vector<CombatEvent> events_;
     std::string lastAnnounce_;
+    std::array<WeaponPickup, 16> pickups_{};
     Rng rng_{0x5B5A};
 };
 

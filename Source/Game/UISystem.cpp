@@ -1,5 +1,8 @@
 #include "Game/UISystem.h"
 
+#include "Game/InputMap.h"
+
+#include <algorithm>
 #include <sstream>
 
 namespace sbs {
@@ -16,13 +19,24 @@ void item(Renderer& r, int x, int y, const std::string& text, bool selected) {
                selected ? Color::rgb(255, 200, 80) : Color::rgb(210, 210, 210), 1);
 }
 
+bool inRect(int mx, int my, int x, int y, int w, int h) {
+    return mx >= x && mx < x + w && my >= y && my < y + h;
+}
+
+int rowHit(int mx, int my, int x, int y0, int rows, int rowH, int w) {
+    for (int i = 0; i < rows; ++i) {
+        if (inRect(mx, my, x, y0 + i * rowH, w, rowH)) return i;
+    }
+    return -1;
+}
+
 } // namespace
 
 int UISystem::menuCount(UiScreen screen) const {
     switch (screen) {
         case UiScreen::MainMenu: return 8;
-        case UiScreen::Options: return 5;
-        case UiScreen::Settings: return 6;
+        case UiScreen::Options: return 6;
+        case UiScreen::Settings: return static_cast<int>(BindSlot::Count) + 2;
         case UiScreen::LanBrowser: return 6;
         case UiScreen::ClassSelect: return 5;
         case UiScreen::SpawnMenu: return 4;
@@ -32,8 +46,28 @@ int UISystem::menuCount(UiScreen screen) const {
     }
 }
 
+int UISystem::hitTest(UiScreen screen, int mx, int my, int serverCount) const {
+    switch (screen) {
+        case UiScreen::MainMenu: return rowHit(mx, my, 50, 78, 8, 14, 360);
+        case UiScreen::Options: return rowHit(mx, my, 50, 68, 6, 16, 360);
+        case UiScreen::Settings: return rowHit(mx, my, 40, 48, menuCount(screen), 12, 400);
+        case UiScreen::LanBrowser: {
+            const int n = std::min(serverCount, 8);
+            const int row = rowHit(mx, my, 20, 68, n, 14, 420);
+            if (row >= 0) return row;
+            return -1;
+        }
+        case UiScreen::ClassSelect: return rowHit(mx, my, 50, 68, 5, 16, 360);
+        case UiScreen::SpawnMenu: return rowHit(mx, my, 50, 78, 4, 16, 360);
+        case UiScreen::Statistics: return inRect(mx, my, 50, 176, 300, 16) ? 0 : -1;
+        case UiScreen::Results: return rowHit(mx, my, 50, 188, 2, 14, 360);
+        default: return -1;
+    }
+}
+
 void UISystem::draw(Renderer& r, UiScreen screen, const SaveData& save, const World* world, uint8_t localId,
-                    const std::vector<LanEntry>& servers, int cursor, const std::string& status) const {
+                    const std::vector<LanEntry>& servers, int cursor, const std::string& status,
+                    int waitingBind) const {
     const Color title = Color::rgb(255, 160, 50);
     if (screen == UiScreen::MainMenu) {
         panel(r, 40, 20, 400, 230);
@@ -41,29 +75,46 @@ void UISystem::draw(Renderer& r, UiScreen screen, const SaveData& save, const Wo
         r.drawText(60, 58, "LAN-ONLY SCI-FI FPS", Color::rgb(80, 200, 255), 1);
         const char* items[] = {
             "Host Listen Server", "Host Dedicated Server", "LAN Browser",
-            "Offline vs Bots", "Options", "Statistics", "Settings", "Quit"
+            "Offline vs Bots", "Options", "Statistics", "Controls", "Quit"
         };
         for (int i = 0; i < 8; ++i) item(r, 70, 80 + i * 14, items[i], cursor == i);
         r.drawText(60, 230, status, Color::rgb(160, 160, 160), 1);
         return;
     }
-    if (screen == UiScreen::Options || screen == UiScreen::Settings) {
+    if (screen == UiScreen::Options) {
         panel(r, 40, 20, 400, 220);
-        r.drawText(60, 30, screen == UiScreen::Options ? "OPTIONS" : "SETTINGS", title, 2);
+        r.drawText(60, 30, "OPTIONS", title, 2);
         std::ostringstream ss;
         ss << "Name: " << save.playerName;
         item(r, 70, 70, ss.str(), cursor == 0);
-        item(r, 70, 86, std::string("Quality: ") + (save.graphics.quality ? "High 120+" : "Low 60"), cursor == 1);
+        item(r, 70, 86, std::string("Quality: ") + (save.graphics.quality ? "High" : "Low"), cursor == 1);
         item(r, 70, 102, std::string("Resolution: ") + std::to_string(save.graphics.width) + "x" + std::to_string(save.graphics.height), cursor == 2);
         item(r, 70, 118, std::string("Sensitivity: ") + std::to_string(save.input.mouseSensitivity), cursor == 3);
         item(r, 70, 134, std::string("Master Volume: ") + std::to_string(save.audio.master), cursor == 4);
         item(r, 70, 150, "Back", cursor == 5);
+        r.drawText(60, 200, "Left/Right to change   Enter Back", Color::rgb(160, 160, 160), 1);
+        return;
+    }
+    if (screen == UiScreen::Settings) {
+        panel(r, 20, 8, 440, 254);
+        r.drawText(36, 14, "CONTROLS", title, 2);
+        const int bindCount = static_cast<int>(BindSlot::Count);
+        for (int i = 0; i < bindCount; ++i) {
+            const BindSlot slot = static_cast<BindSlot>(i);
+            std::string line = std::string(bindLabel(slot)) + "   ";
+            if (waitingBind == i) line += "[PRESS KEY OR MOUSE]";
+            else line += bindName(bindValue(save.input, slot));
+            item(r, 40, 50 + i * 12, line, cursor == i);
+        }
+        item(r, 40, 50 + bindCount * 12, std::string("Sensitivity: ") + std::to_string(save.input.mouseSensitivity), cursor == bindCount);
+        item(r, 40, 50 + (bindCount + 1) * 12, "Back", cursor == bindCount + 1);
+        r.drawText(36, 246, "Click a bind then press a key", Color::rgb(160, 160, 160), 1);
         return;
     }
     if (screen == UiScreen::LanBrowser) {
         panel(r, 20, 16, 440, 240);
         r.drawText(36, 24, "LAN SERVER BROWSER", title, 2);
-        r.drawText(36, 48, "Refresh / Join / Favorite / Back", Color::rgb(180, 180, 180), 1);
+        r.drawText(36, 48, "Click a server or Enter to join", Color::rgb(180, 180, 180), 1);
         if (servers.empty()) {
             r.drawText(36, 80, "Scanning LAN... no servers yet", Color::rgb(200, 200, 80), 1);
         }
@@ -114,40 +165,46 @@ void UISystem::draw(Renderer& r, UiScreen screen, const SaveData& save, const Wo
         return;
     }
     if (screen == UiScreen::Results && world) {
-        panel(r, 40, 20, 400, 230);
-        r.drawText(60, 30, "MATCH RESULTS", title, 2);
-        r.drawText(60, 60, world->lastAnnouncement(), Color::rgb(255, 220, 120), 1);
-        r.drawText(60, 80, "Alliance " + std::to_string(world->scoreA()) + "   Dominion " + std::to_string(world->scoreB()),
+        panel(r, 40, 8, 400, 210);
+        r.drawText(60, 16, "MATCH RESULTS", title, 2);
+        r.drawText(60, 40, world->lastAnnouncement(), Color::rgb(255, 220, 120), 1);
+        r.drawText(60, 56, "Alliance " + std::to_string(world->scoreA()) + "   Dominion " + std::to_string(world->scoreB()),
                    Color::rgb(230, 230, 230), 1);
-        int y = 100;
+        int y = 72;
         for (const auto& p : world->players()) {
             if (!p.active) continue;
             std::ostringstream ss;
             ss << p.name << "  K:" << p.kills << " D:" << p.deaths << " S:" << p.score;
             r.drawText(70, y, ss.str(), factionColor(p.faction), 1);
             y += 10;
-            if (y > 210) break;
+            if (y > 176) break;
         }
-        item(r, 70, 220, "Continue", true);
+        item(r, 70, 188, "Continue", cursor == 0);
+        item(r, 70, 202, "Play Again", cursor == 1);
         return;
     }
 
     if (!world) return;
     const PlayerState* me = world->playerById(localId);
+    const int fh = r.frameHeight();
 
     if (screen == UiScreen::Playing || screen == UiScreen::Scoreboard || screen == UiScreen::Spectator) {
-        r.drawText(8, r.height() > 0 ? 1 : 1, std::string(modeName(world->mode())) + "  " +
+        r.drawText(8, 1, std::string(modeName(world->mode())) + "  " +
                    std::to_string(world->scoreA()) + " - " + std::to_string(world->scoreB()) + "  " +
                    std::to_string(static_cast<int>(world->timeLeft())) + "s",
                    Color::rgb(240, 240, 240), 1);
         r.drawText(8, 12, world->lastAnnouncement(), Color::rgb(255, 200, 80), 1);
+        if (world->state() == MatchState::Warmup) {
+            r.drawText(8, 24, "WARMUP - weapons live when the match starts", Color::rgb(80, 220, 255), 1);
+        }
         if (me) {
             const WeaponRuntime& w = me->weapons[me->weaponSlot];
-            r.drawText(8, 250, std::string(className(me->cls)) + "  " + weaponName(w.id) + "  " +
+            r.drawText(8, fh - 28, std::string(className(me->cls)) + "  " + weaponName(w.id) + "  " +
                        std::to_string(w.ammoInMag) + "/" + std::to_string(w.reserve),
                        Color::rgb(240, 240, 200), 1);
-            r.drawRect(8, 262, std::max(1, static_cast<int>(me->health)), 6, Color::rgb(80, 220, 80));
-            r.drawRect(8, 270, std::max(1, static_cast<int>(me->armor)), 4, Color::rgb(80, 160, 255));
+            r.drawRect(8, fh - 16, std::max(1, static_cast<int>(me->health)), 6, Color::rgb(80, 220, 80));
+            r.drawRect(8, fh - 9, std::max(1, static_cast<int>(me->armor)), 4, Color::rgb(80, 160, 255));
+            r.drawText(200, fh - 16, "1/2 guns  LMB fire  walk over pickups", Color::rgb(170, 170, 170), 1);
         }
         if (screen == UiScreen::Spectator) {
             r.drawTextCenter(20, "SPECTATOR MODE", Color::rgb(200, 200, 200), 2);

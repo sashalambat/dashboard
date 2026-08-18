@@ -31,8 +31,10 @@ struct LanEntry {
 class UISystem {
 public:
     void draw(Renderer& r, UiScreen screen, const SaveData& save, const World* world, uint8_t localId,
-              const std::vector<LanEntry>& servers, int cursor, const std::string& status) const;
+              const std::vector<LanEntry>& servers, int cursor, const std::string& status,
+              int waitingBind = -1) const;
     int menuCount(UiScreen screen) const;
+    int hitTest(UiScreen screen, int mx, int my, int serverCount) const;
 };
 
 } // namespace sbs

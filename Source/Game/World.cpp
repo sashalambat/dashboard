@@ -32,14 +32,21 @@ void World::reset(const MatchConfig& cfg, const GameMap& map) {
     rules_ = modeRules(cfg_.mode);
     if (cfg_.timeLimit > 0.0f) rules_.matchSeconds = cfg_.timeLimit;
     if (cfg_.scoreLimit > 0) rules_.scoreLimit = cfg_.scoreLimit;
-    state_ = MatchState::Warmup;
+    if (cfg_.warmupSeconds >= 0) rules_.warmupSeconds = cfg_.warmupSeconds;
+    if (rules_.warmupSeconds <= 0) {
+        state_ = MatchState::Playing;
+        warmupLeft_ = 0.0f;
+        lastAnnounce_ = "Match start";
+    } else {
+        state_ = MatchState::Warmup;
+        warmupLeft_ = static_cast<float>(rules_.warmupSeconds);
+        lastAnnounce_ = "Warmup";
+    }
     tick_ = 0;
     timeLeft_ = rules_.matchSeconds;
-    warmupLeft_ = static_cast<float>(rules_.warmupSeconds);
     scoreA_ = 0;
     scoreB_ = 0;
     events_.clear();
-    lastAnnounce_ = "Warmup";
     players_ = {};
     projectiles_ = {};
     hill_ = map_->hillPosition();
@@ -57,6 +64,7 @@ void World::reset(const MatchConfig& cfg, const GameMap& map) {
         }
     }
     announce(std::string("Match setup: ") + modeName(cfg_.mode) + " on " + map_->name());
+    placePickups();
 }
 
 int World::addPlayer(const std::string& name, PlayerClass cls, Faction faction, bool bot, BotDifficulty diff) {
@@ -83,6 +91,60 @@ int World::addPlayer(const std::string& name, PlayerClass cls, Faction faction, 
         return i;
     }
     return -1;
+}
+
+void World::placePickups() {
+    pickups_ = {};
+    if (!map_) return;
+    static const WeaponId kCycle[] = {
+        WeaponId::SBSAssaultRifle, WeaponId::SBSCombatShotgun, WeaponId::SBSMachineGun,
+        WeaponId::SBSSniperRifle, WeaponId::Railgun, WeaponId::RocketLauncher,
+        WeaponId::PlasmaRifle, WeaponId::PulseCannon, WeaponId::Grenade
+    };
+    int n = 0;
+    for (int y = 2; y < map_->height() - 2 && n < static_cast<int>(pickups_.size()); ++y) {
+        for (int x = 2; x < map_->width() - 2 && n < static_cast<int>(pickups_.size()); ++x) {
+            if (map_->isBlocked(x, y)) continue;
+            const CellType t = map_->cell(x, y);
+            const bool ammoPad = t == CellType::Ammo || t == CellType::Health;
+            if (!ammoPad && ((x * 17 + y * 11) % 13) != 0) continue;
+            WeaponPickup& u = pickups_[static_cast<size_t>(n)];
+            u.active = true;
+            u.id = kCycle[n % 9];
+            u.pos = {static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f};
+            u.respawn = 0.0f;
+            ++n;
+        }
+    }
+}
+
+void World::tickPickups(float dt) {
+    if (state_ != MatchState::Playing && state_ != MatchState::Warmup) return;
+    for (auto& u : pickups_) {
+        if (!u.active) {
+            u.respawn -= dt;
+            if (u.respawn <= 0.0f) u.active = true;
+            continue;
+        }
+        for (auto& p : players_) {
+            if (!p.active || !p.alive || p.spectating) continue;
+            if (distanceSq(p.pos, u.pos) > 0.55f * 0.55f) continue;
+            if (p.weapons[0].id == u.id) {
+                p.weapons[0].reserve = std::min(p.weapons[0].reserve + weaponDef(u.id).magazine * 2, 400);
+            } else if (p.weapons[1].id == u.id) {
+                p.weapons[1].reserve = std::min(p.weapons[1].reserve + weaponDef(u.id).magazine * 2, 400);
+                p.weaponSlot = 1;
+            } else {
+                resetWeapon(p.weapons[1], u.id, p.upgradeLevel);
+                p.weaponSlot = 1;
+            }
+            events_.push_back({CombatEvent::Pickup, p.id, 0, u.pos, u.id, "pickup"});
+            announce(std::string(p.name) + " picked up " + weaponName(u.id));
+            u.active = false;
+            u.respawn = 22.0f;
+            break;
+        }
+    }
 }
 
 void World::removePlayer(uint8_t id) {
@@ -152,7 +214,7 @@ void World::killPlayer(PlayerState& victim, PlayerState* killer, WeaponId weapon
     }
     if (killer && killer != &victim) {
         killer->kills += 1;
-        addScore(*killer, 10);
+        addScore(*killer, 1);
         events_.push_back({CombatEvent::Kill, killer->id, victim.id, victim.pos, weapon, "kill"});
     } else {
         events_.push_back({CombatEvent::Kill, victim.id, victim.id, victim.pos, weapon, "suicide"});
@@ -276,7 +338,7 @@ void World::tickPlayers(float dt) {
         if (p.spectating) continue;
         if (!p.alive) {
             p.respawn -= dt;
-            if (p.respawn <= 0.0f && state_ == MatchState::Playing) spawnPlayer(p);
+            if (p.respawn <= 0.0f && (state_ == MatchState::Playing || state_ == MatchState::Warmup)) spawnPlayer(p);
             continue;
         }
 
@@ -306,15 +368,17 @@ void World::tickPlayers(float dt) {
         }
 
         tickWeapons(p, dt);
-        if (p.input.reload && !p.weapons[p.weaponSlot].reloading) {
-            WeaponRuntime& w = p.weapons[p.weaponSlot];
-            if (w.ammoInMag < weaponDef(w.id).magazine && w.reserve > 0) {
-                w.reloading = true;
-                w.reloadLeft = weaponDef(w.id).reloadTime;
+        if (state_ == MatchState::Playing) {
+            if (p.input.reload && !p.weapons[p.weaponSlot].reloading) {
+                WeaponRuntime& w = p.weapons[p.weaponSlot];
+                if (w.ammoInMag < weaponDef(w.id).magazine && w.reserve > 0) {
+                    w.reloading = true;
+                    w.reloadLeft = weaponDef(w.id).reloadTime;
+                }
             }
+            if (p.input.fire) fireWeapon(p, *this, false);
+            if (p.input.altFire) fireWeapon(p, *this, true);
         }
-        if (p.input.fire) fireWeapon(p, *this, false);
-        if (p.input.altFire) fireWeapon(p, *this, true);
 
         if (def.healPerSecond > 0.0f) {
             for (auto& o : players_) {
@@ -370,6 +434,16 @@ void World::tickMode(float dt) {
         warmupLeft_ -= dt;
         if (warmupLeft_ <= 0.0f) {
             state_ = MatchState::Playing;
+            scoreA_ = 0;
+            scoreB_ = 0;
+            for (auto& p : players_) {
+                if (!p.active) continue;
+                p.kills = 0;
+                p.deaths = 0;
+                p.score = 0;
+                p.captures = 0;
+                if (!p.spectating) spawnPlayer(p);
+            }
             announce("Match start");
         }
         return;
@@ -490,6 +564,7 @@ void World::tick(float dt) {
     tick_++;
     tickPlayers(dt);
     tickProjectiles(dt);
+    tickPickups(dt);
     tickMode(dt);
 }
 
