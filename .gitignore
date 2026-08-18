@@ -1,0 +1,24 @@
+# SBS Wars build artifacts
+build/
+Build/
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Dist/payload/
+*.o
+*.a
+*.so
+*.exe
+.cache/
+compile_commands.json
+.vscode/
+.idea/
+*.user
+*.log
+CMakeUserPresets.json
+
+# Unreal generated
+*.sln
+*.VC.db
+.vs/
