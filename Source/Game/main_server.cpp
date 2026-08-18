@@ -6,7 +6,10 @@
 #include <chrono>
 #include <thread>
 
-#ifdef _WIN32
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #else
 #include <csignal>
@@ -14,12 +17,21 @@
 
 namespace {
 volatile bool gRun = true;
+#if defined(_WIN32)
+BOOL WINAPI consoleHandler(DWORD) {
+    gRun = false;
+    return TRUE;
+}
+#else
 void onStop(int) { gRun = false; }
+#endif
 } // namespace
 
 int main(int argc, char** argv) {
     sbs::logInfo(std::string("SBS Wars ") + SBS_VERSION + " dedicated server");
-#ifndef _WIN32
+#if defined(_WIN32)
+    SetConsoleCtrlHandler(consoleHandler, TRUE);
+#else
     std::signal(SIGINT, onStop);
     std::signal(SIGTERM, onStop);
 #endif

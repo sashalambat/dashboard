@@ -161,6 +161,9 @@ bool UdpChannel::recv(Packet& packet) {
 }
 
 std::string localHostName() {
+#if defined(_WIN32)
+    ensureSockets();
+#endif
     char host[256];
     if (gethostname(host, sizeof(host)) != 0) {
         return "SBS-Host";

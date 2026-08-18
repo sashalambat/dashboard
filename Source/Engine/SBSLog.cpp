@@ -23,7 +23,9 @@ void logMessage(LogLevel level, const std::string& message) {
     const auto now = std::chrono::system_clock::now();
     const std::time_t t = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
-#if defined(_WIN32)
+#if defined(_WIN32) && defined(_MSC_VER)
+    localtime_s(&tm, &t);
+#elif defined(_WIN32)
     localtime_s(&tm, &t);
 #else
     localtime_r(&t, &tm);

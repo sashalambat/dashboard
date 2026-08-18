@@ -1,0 +1,10 @@
+{
+  "name": "sbswars",
+  "version-string": "1.0.0",
+  "description": "SBS Wars LAN FPS",
+  "dependencies": [
+    "sdl2",
+    "sdl2-mixer",
+    "sdl2-ttf"
+  ]
+}

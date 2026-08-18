@@ -8,6 +8,9 @@
 #include "Game/ServerHost.h"
 #include "Game/UISystem.h"
 
+#ifndef SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
+#endif
 #include <SDL.h>
 #include <algorithm>
 #include <chrono>

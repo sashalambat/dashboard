@@ -24,16 +24,18 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "startmenu"; Description: "Create a Start Menu shortcut"; GroupDescription: "Shortcuts:"; Flags: checkedonce
 
 [Files]
-Source: "..\..\Binaries\sbswars.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\Binaries\sbswars-server.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\Binaries\sbswars-launcher.exe"; DestDir: "{app}"; DestName: "SBSWarsLauncher.exe"; Flags: ignoreversion
-Source: "..\..\Binaries\sbswars-installer.exe"; DestDir: "{app}"; DestName: "SBSWarsInstaller.exe"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\..\Dist\windows\SBSWars.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\Dist\windows\SBSWarsServer.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\Dist\windows\SBSWarsLauncher.exe"; DestDir: "{app}"; DestName: "SBSWarsLauncher.exe"; Flags: ignoreversion
+Source: "..\..\Dist\windows\SBSWarsInstaller.exe"; DestDir: "{app}"; DestName: "SBSWarsInstaller.exe"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\..\Dist\windows\SDL2.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\Dist\windows\SDL2_mixer.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\Dist\windows\libwinpthread-1.dll"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "sbswars.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\..\UI\sbswars.png"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "..\..\Maps\*"; DestDir: "{app}\Maps"; Flags: ignoreversion recursesubdirs
-Source: "..\..\Content\*"; DestDir: "{app}\Content"; Flags: ignoreversion recursesubdirs
-Source: "..\..\Audio\*"; DestDir: "{app}\Audio"; Flags: ignoreversion recursesubdirs
-Source: "..\..\UI\*"; DestDir: "{app}\UI"; Flags: ignoreversion recursesubdirs
+Source: "..\..\Dist\windows\Maps\*"; DestDir: "{app}\Maps"; Flags: ignoreversion recursesubdirs
+Source: "..\..\Dist\windows\Content\*"; DestDir: "{app}\Content"; Flags: ignoreversion recursesubdirs
+Source: "..\..\Dist\windows\Audio\*"; DestDir: "{app}\Audio"; Flags: ignoreversion recursesubdirs
+Source: "..\..\Dist\windows\UI\*"; DestDir: "{app}\UI"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{group}\SBS Wars"; Filename: "{app}\SBSWarsLauncher.exe"; IconFilename: "{app}\sbswars.ico"; Tasks: startmenu

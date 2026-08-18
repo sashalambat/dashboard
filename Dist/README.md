@@ -1,17 +1,27 @@
 # Dist
 
-Rebuild with `Packaging/linux/make_installer.sh`.
+## Windows (use this on a Windows PC)
+
+Folder: `Dist/windows/`
 
 | File | Role |
 | --- | --- |
-| `SBSWarsInstaller.run` | Full installer (extracts the game, runs setup, creates desktop shortcut) |
-| `SBSWarsInstaller` | GUI setup binary (used by the `.run` package) |
-| `SBSWarsLauncher` | Application launcher |
+| `SBSWarsLauncher.exe` | Application launcher |
+| `SBSWars.exe` | Game |
+| `SBSWarsServer.exe` | Dedicated LAN server |
+| `SBSWarsInstaller.exe` | GUI setup |
+| `Play-SBSWars.bat` | Start without installing |
+| `Install-SBSWars.bat` | Install + Desktop shortcut |
 
-Run:
+From the repo root on Windows, double-click **`Install-SBSWars.bat`**.
+
+## Linux
+
+| File | Role |
+| --- | --- |
+| `SBSWarsInstaller.run` | Full installer (desktop shortcut) |
+| `SBSWarsLauncher` | Linux launcher |
 
 ```bash
-bash Dist/SBSWarsInstaller.run "$HOME/SBSWars"
+bash Dist/SBSWarsInstaller.run
 ```
-
-After setup, double-click **SBS Wars** on the Desktop.

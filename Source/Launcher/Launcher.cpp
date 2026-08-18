@@ -2,8 +2,12 @@
 #include "Engine/SBSLog.h"
 #include "Game/SaveSystem.h"
 
+#ifndef SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
+#endif
 #include <SDL.h>
 #include <algorithm>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -20,6 +24,20 @@ std::string exeDir(const char* argv0) {
     const auto slash = p.find_last_of("/\\");
     if (slash == std::string::npos) return ".";
     return p.substr(0, slash);
+}
+
+bool fileExists(const std::string& path) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return false;
+    std::fclose(f);
+    return true;
+}
+
+std::string firstExisting(const std::vector<std::string>& paths) {
+    for (const auto& p : paths) {
+        if (fileExists(p)) return p;
+    }
+    return paths.empty() ? std::string() : paths.front();
 }
 
 int spawn(const std::string& path, const std::vector<std::string>& args) {
@@ -61,8 +79,13 @@ int main(int argc, char** argv) {
     }
 
     const std::string dir = exeDir(argc > 0 ? argv[0] : ".");
-    const std::string client = dir + "/sbswars";
-    const std::string server = dir + "/sbswars-server";
+#if defined(_WIN32)
+    const std::string client = firstExisting({dir + "\\SBSWars.exe", dir + "\\sbswars.exe"});
+    const std::string server = firstExisting({dir + "\\SBSWarsServer.exe", dir + "\\sbswars-server.exe"});
+#else
+    const std::string client = firstExisting({dir + "/sbswars", dir + "/SBSWars"});
+    const std::string server = firstExisting({dir + "/sbswars-server", dir + "/SBSWarsServer"});
+#endif
     int cursor = 0;
     bool run = true;
     const char* items[] = {"Launch Game", "Host Dedicated Server", "Offline vs Bots", "Quit"};

@@ -5,6 +5,9 @@
 #include "Game/World.h"
 #include "Game/SaveSystem.h"
 
+#ifndef SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
+#endif
 #include <SDL.h>
 #include <vector>
 

@@ -4,6 +4,9 @@
 #include "Engine/SBSLog.h"
 #include "Game/SaveSystem.h"
 
+#ifndef SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
+#endif
 #include <SDL.h>
 #include <algorithm>
 #include <cstdlib>
@@ -24,7 +27,9 @@ namespace {
 std::string homeDir() {
 #if defined(_WIN32)
     const char* p = std::getenv("USERPROFILE");
-    return p ? p : ".";
+    if (p && p[0]) return p;
+    const char* h = std::getenv("HOME");
+    return h ? h : ".";
 #else
     const char* p = std::getenv("HOME");
     if (p && p[0]) return p;
@@ -48,7 +53,7 @@ std::string dirnameOf(const std::string& p) {
     return p.substr(0, slash);
 }
 
-std::string shellQuote(const std::string& s) {
+[[maybe_unused]] std::string shellQuote(const std::string& s) {
     std::string out = "'";
     for (char c : s) {
         if (c == '\'') out += "'\\''";
@@ -59,6 +64,30 @@ std::string shellQuote(const std::string& s) {
 }
 
 int runInstallScript(const InstallOptions& opt) {
+#if defined(_WIN32)
+    std::string script = joinPath(opt.payload, "install.ps1");
+    if (script.find("install.ps1") != std::string::npos) {
+        std::ifstream in(script);
+        if (!in) {
+            script = joinPath(joinPath(opt.payload, "Packaging"), "windows");
+            script = joinPath(script, "install.ps1");
+        } else {
+            in.close();
+        }
+    }
+    std::ostringstream cmd;
+    cmd << "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" << script
+        << "\" -Prefix \"" << opt.prefix << "\" -Payload \"" << opt.payload << "\"";
+    if (!opt.desktopShortcut) cmd << " -NoDesktop";
+    if (!opt.menuShortcut) cmd << " -NoStartMenu";
+    logInfo("Installing to " + opt.prefix);
+    const int rc = std::system(cmd.str().c_str());
+    if (rc != 0) {
+        logError("Windows install script failed");
+        return 1;
+    }
+    return 0;
+#else
     std::string script = joinPath(opt.payload, "install.sh");
     std::ifstream in(script);
     if (!in) {
@@ -79,11 +108,17 @@ int runInstallScript(const InstallOptions& opt) {
         return 1;
     }
     return 0;
+#endif
 }
 
 InstallOptions parseInstallArgs(int argc, char** argv) {
     InstallOptions o;
     o.prefix = joinPath(homeDir(), "SBSWars");
+#if defined(_WIN32)
+    if (const char* app = std::getenv("LOCALAPPDATA")) {
+        o.prefix = joinPath(app, "SBSWars");
+    }
+#endif
     const char* self = (argc > 0 && argv[0]) ? argv[0] : ".";
     std::string selfDir = dirnameOf(self);
     o.payload = dirnameOf(selfDir);
@@ -92,7 +127,10 @@ InstallOptions parseInstallArgs(int argc, char** argv) {
     if (selfDir.size() >= 4 && selfDir.substr(selfDir.size() - 4) == "/bin") {
         o.payload = dirnameOf(selfDir);
     }
-    o.gui = std::getenv("DISPLAY") != nullptr;
+    o.gui = std::getenv("DISPLAY") != nullptr || std::getenv("WAYLAND_DISPLAY") != nullptr;
+#if defined(_WIN32)
+    o.gui = true;
+#endif
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i] ? argv[i] : "";
         auto next = [&](std::string& dst) {
@@ -184,8 +222,13 @@ int runInstaller(int argc, char** argv) {
             } else {
                 if (k == SDLK_RETURN) {
                     if (cursor == 0) {
+#if defined(_WIN32)
+                        const std::string launch = joinPath(opt.prefix, "SBSWarsLauncher.exe");
+                        const int launched = std::system(("start \"\" \"" + launch + "\"").c_str());
+#else
                         const std::string launch = joinPath(opt.prefix, "SBSWarsLauncher");
                         const int launched = std::system((shellQuote(launch) + " >/dev/null 2>&1 &").c_str());
+#endif
                         if (launched != 0) {
                             logWarn("Could not start launcher automatically");
                         }
@@ -206,14 +249,22 @@ int runInstaller(int argc, char** argv) {
             renderer.drawText(24, 70, "Install to:", Color::rgb(180, 180, 180), 1);
             renderer.drawText(24, 84, opt.prefix, cursor == 0 ? Color::rgb(255, 220, 120) : Color::rgb(230, 230, 230), 1);
             drawToggle(renderer, 24, 112, "Create desktop shortcut", opt.desktopShortcut, cursor == 1);
+#if defined(_WIN32)
+            drawToggle(renderer, 24, 132, "Create Start Menu shortcut", opt.menuShortcut, cursor == 2);
+#else
             drawToggle(renderer, 24, 132, "Add to applications menu", opt.menuShortcut, cursor == 2);
+#endif
             renderer.drawRect(24, 168, 160, 22, cursor == 3 ? Color::rgb(255, 150, 40) : Color::rgb(40, 50, 60));
             renderer.drawText(48, 174, "INSTALL", Color::rgb(20, 20, 20), 1);
             renderer.drawText(24, 210, "Arrows move  Space toggles  Enter installs", Color::rgb(140, 140, 140), 1);
         } else {
             renderer.drawText(24, 80, "Setup complete.", Color::rgb(80, 220, 120), 1);
             renderer.drawText(24, 98, status, Color::rgb(230, 230, 230), 1);
+#if defined(_WIN32)
+            renderer.drawText(24, 120, "Desktop\\SBS Wars.lnk", Color::rgb(255, 200, 80), 1);
+#else
             renderer.drawText(24, 120, joinPath(homeDir(), "Desktop") + "/SBS Wars.desktop", Color::rgb(255, 200, 80), 1);
+#endif
             renderer.drawRect(24, 160, 140, 22, cursor == 0 ? Color::rgb(255, 150, 40) : Color::rgb(40, 50, 60));
             renderer.drawText(40, 166, "LAUNCH", Color::rgb(20, 20, 20), 1);
             renderer.drawRect(180, 160, 140, 22, cursor == 1 ? Color::rgb(255, 150, 40) : Color::rgb(40, 50, 60));
