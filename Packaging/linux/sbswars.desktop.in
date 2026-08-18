@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=SBS Wars
+GenericName=First-Person Shooter
+Comment=LAN-only sci-fi military FPS — SBS Alliance vs Cyber Dominion
+Exec=@EXEC@
+TryExec=@TRYEXEC@
+Icon=@ICON@
+Path=@PATH@
+Terminal=false
+StartupNotify=true
+Categories=Game;ActionGame;
+Keywords=FPS;LAN;Shooter;SBS;
+StartupWMClass=SBS Wars

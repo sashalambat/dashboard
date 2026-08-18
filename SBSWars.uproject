@@ -1,0 +1,18 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.6",
+	"Category": "Games",
+	"Description": "SBS Wars LAN-only sci-fi FPS",
+	"Modules": [
+		{
+			"Name": "SBSWars",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{ "Name": "OnlineSubsystem", "Enabled": false },
+		{ "Name": "OnlineSubsystemUtils", "Enabled": false },
+		{ "Name": "OnlineSubsystemSteam", "Enabled": false }
+	]
+}

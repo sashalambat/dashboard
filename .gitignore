@@ -1,0 +1,28 @@
+# SBS Wars build artifacts
+build/
+Build/
+Binaries/
+build-win/
+ThirdParty/sdl2-mingw/
+DerivedDataCache/
+Intermediate/
+Saved/
+Dist/payload/
+*.o
+*.a
+*.so
+*.exe
+!Dist/windows/*.exe
+!Dist/windows/*.dll
+.cache/
+compile_commands.json
+.vscode/
+.idea/
+*.user
+*.log
+CMakeUserPresets.json
+
+# Unreal generated
+*.sln
+*.VC.db
+.vs/
