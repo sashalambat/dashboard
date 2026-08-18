@@ -1,6 +1,5 @@
-#include "Engine/Renderer.h"
 #include "Engine/SBSLog.h"
-#include "Game/SaveSystem.h"
+#include "Engine/BitmapFont.h"
 
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
@@ -58,6 +57,13 @@ int spawn(const std::string& path, const std::vector<std::string>& args) {
 #endif
 }
 
+void activate(int cursor, const std::string& client, const std::string& server, bool& run) {
+    if (cursor == 0) spawn(client, {});
+    if (cursor == 1) spawn(server, {"--dedicated", "--bots", "12"});
+    if (cursor == 2) spawn(client, {"--offline"});
+    if (cursor == 3) run = false;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -72,6 +78,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     SDL_Renderer* r = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!r) {
+        r = SDL_CreateRenderer(window, -1, 0);
+    }
     if (!r) {
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -89,6 +98,12 @@ int main(int argc, char** argv) {
     int cursor = 0;
     bool run = true;
     const char* items[] = {"Launch Game", "Host Dedicated Server", "Offline vs Bots", "Quit"};
+    const SDL_Rect buttons[4] = {
+        {80, 120, 560, 48},
+        {80, 180, 560, 48},
+        {80, 240, 560, 48},
+        {80, 300, 560, 48},
+    };
 
     while (run) {
         SDL_Event e;
@@ -98,29 +113,57 @@ int main(int argc, char** argv) {
                 if (e.key.keysym.sym == SDLK_ESCAPE) run = false;
                 if (e.key.keysym.sym == SDLK_UP) cursor = std::max(0, cursor - 1);
                 if (e.key.keysym.sym == SDLK_DOWN) cursor = std::min(3, cursor + 1);
-                if (e.key.keysym.sym == SDLK_RETURN) {
-                    if (cursor == 0) spawn(client, {});
-                    if (cursor == 1) spawn(server, {"--dedicated", "--bots", "12"});
-                    if (cursor == 2) spawn(client, {"--offline"});
-                    if (cursor == 3) run = false;
+                if (e.key.keysym.sym == SDLK_RETURN || e.key.keysym.sym == SDLK_SPACE) {
+                    activate(cursor, client, server, run);
+                }
+            }
+            if (e.type == SDL_MOUSEMOTION) {
+                const int mx = e.motion.x;
+                const int my = e.motion.y;
+                for (int i = 0; i < 4; ++i) {
+                    if (mx >= buttons[i].x && mx < buttons[i].x + buttons[i].w &&
+                        my >= buttons[i].y && my < buttons[i].y + buttons[i].h) {
+                        cursor = i;
+                    }
+                }
+            }
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+                const int mx = e.button.x;
+                const int my = e.button.y;
+                for (int i = 0; i < 4; ++i) {
+                    if (mx >= buttons[i].x && mx < buttons[i].x + buttons[i].w &&
+                        my >= buttons[i].y && my < buttons[i].y + buttons[i].h) {
+                        cursor = i;
+                        activate(cursor, client, server, run);
+                    }
                 }
             }
         }
+
         SDL_SetRenderDrawColor(r, 10, 12, 16, 255);
         SDL_RenderClear(r);
         SDL_SetRenderDrawColor(r, 255, 150, 40, 255);
-        SDL_Rect bar{0, 0, 720, 8};
-        SDL_RenderFillRect(r, &bar);
+        SDL_Rect top{0, 0, 720, 10};
+        SDL_RenderFillRect(r, &top);
         SDL_SetRenderDrawColor(r, 40, 200, 255, 255);
-        SDL_Rect bar2{0, 412, 720, 8};
-        SDL_RenderFillRect(r, &bar2);
+        SDL_Rect bot{0, 410, 720, 10};
+        SDL_RenderFillRect(r, &bot);
+
+        sbs::drawSdlText(r, 80, 28, "SBS WARS", SDL_Color{255, 160, 50, 255}, 5);
+        sbs::drawSdlText(r, 80, 78, "LAN-ONLY SCI-FI FPS", SDL_Color{80, 200, 255, 255}, 2);
+
         for (int i = 0; i < 4; ++i) {
             if (i == cursor) SDL_SetRenderDrawColor(r, 255, 160, 50, 255);
             else SDL_SetRenderDrawColor(r, 40, 50, 60, 255);
-            SDL_Rect item{80, 90 + i * 60, 560, 48};
-            SDL_RenderFillRect(r, &item);
+            SDL_RenderFillRect(r, &buttons[i]);
+            const SDL_Color label = (i == cursor) ? SDL_Color{20, 16, 10, 255} : SDL_Color{230, 230, 230, 255};
+            const int scale = 3;
+            const int tw = sbs::sdlTextWidth(items[i], scale);
+            const int tx = buttons[i].x + (buttons[i].w - tw) / 2;
+            const int ty = buttons[i].y + (buttons[i].h - 7 * scale) / 2;
+            sbs::drawSdlText(r, tx, ty, items[i], label, scale);
         }
-        (void)items;
+        sbs::drawSdlText(r, 80, 368, "ARROWS OR MOUSE   ENTER TO START", SDL_Color{160, 160, 160, 255}, 2);
         SDL_RenderPresent(r);
         SDL_Delay(16);
     }
