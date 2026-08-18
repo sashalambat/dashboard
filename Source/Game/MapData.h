@@ -16,6 +16,9 @@ struct MapTheme {
     Color wallB;
     Color accent;
     float ambient = 0.55f;
+    int wallTex = 0;
+    int wallTexAlt = 1;
+    int floorTex = 0;
 };
 
 struct SpawnPoint {

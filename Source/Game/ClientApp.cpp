@@ -1,5 +1,6 @@
 #include "Game/ClientApp.h"
 
+#include "Engine/AssetPath.h"
 #include "Engine/AudioEngine.h"
 #include "Engine/NetSocket.h"
 #include "Engine/Protocol.h"
@@ -335,6 +336,7 @@ int runDedicatedServer(int argc, char** argv) {
 
 int runClient(int argc, char** argv) {
     LaunchOptions o = parseLaunchOptions(argc, argv);
+    initAssetSearch(argc > 0 ? argv[0] : ".");
     save_ = SaveSystem::load();
     if (!o.name.empty() && o.name != "Operator") save_.playerName = o.name;
 

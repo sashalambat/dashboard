@@ -239,6 +239,20 @@ int main() {
     CHECK(playersOnPoint(makeWorld(GameModeId::KingOfTheHill, MapId::SBSFoundry, 0), Vec2{1, 1}, 10, TeamId::None) == 0,
           "empty hill occupancy");
     CHECK(modeRules(GameModeId::TeamDeathmatch).scoreLimit >= 40, "tdm score limit allows a full match");
+    CHECK(GameMap::themeFor(MapId::SBSFoundry).wallTex >= 0, "foundry wall art index");
+    {
+        const std::string root = SBS_SOURCE_DIR;
+        auto openArt = [&](const char* rel) {
+            FILE* f = std::fopen((root + "/" + rel).c_str(), "rb");
+            return f;
+        };
+        FILE* art = openArt("Content/art/weapons/blaster.png");
+        CHECK(art != nullptr, "kenney weapon art packed");
+        if (art) std::fclose(art);
+        art = openArt("Content/art/chars/dominion.png");
+        CHECK(art != nullptr, "sci-fi guard art packed");
+        if (art) std::fclose(art);
+    }
     CHECK(modeRules(GameModeId::TeamDeathmatch).matchSeconds >= 600.0f, "tdm time limit");
 
     {

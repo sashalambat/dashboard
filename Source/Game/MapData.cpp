@@ -99,23 +99,23 @@ MapTheme GameMap::themeFor(MapId id) {
     switch (id) {
         case MapId::SBSFoundry:
             return {Color::rgb(40, 28, 18), Color::rgb(70, 55, 40), Color::rgb(50, 40, 30),
-                    Color::rgb(110, 80, 50), Color::rgb(80, 60, 40), Color::rgb(255, 140, 40), 0.6f};
+                    Color::rgb(110, 80, 50), Color::rgb(80, 60, 40), Color::rgb(255, 140, 40), 0.6f, 0, 10, 0};
         case MapId::ArcticBaseZeta:
             return {Color::rgb(20, 40, 55), Color::rgb(180, 200, 220), Color::rgb(140, 170, 200),
-                    Color::rgb(90, 130, 160), Color::rgb(200, 220, 230), Color::rgb(80, 180, 255), 0.7f};
+                    Color::rgb(90, 130, 160), Color::rgb(200, 220, 230), Color::rgb(80, 180, 255), 0.7f, 11, 12, 2};
         case MapId::OrbitalPlatformSeven:
             return {Color::rgb(8, 8, 18), Color::rgb(30, 32, 48), Color::rgb(18, 20, 32),
-                    Color::rgb(70, 80, 110), Color::rgb(40, 50, 80), Color::rgb(120, 180, 255), 0.45f};
+                    Color::rgb(70, 80, 110), Color::rgb(40, 50, 80), Color::rgb(120, 180, 255), 0.45f, 2, 14, 1};
         case MapId::CrimsonDesert:
             return {Color::rgb(60, 25, 15), Color::rgb(170, 90, 40), Color::rgb(140, 70, 30),
-                    Color::rgb(120, 50, 25), Color::rgb(90, 40, 20), Color::rgb(255, 80, 40), 0.75f};
+                    Color::rgb(120, 50, 25), Color::rgb(90, 40, 20), Color::rgb(255, 80, 40), 0.75f, 13, 4, 5};
         case MapId::CyberCore:
             return {Color::rgb(10, 20, 18), Color::rgb(20, 40, 36), Color::rgb(12, 28, 24),
-                    Color::rgb(20, 80, 70), Color::rgb(10, 50, 45), Color::rgb(40, 255, 200), 0.5f};
+                    Color::rgb(20, 80, 70), Color::rgb(10, 50, 45), Color::rgb(40, 255, 200), 0.5f, 6, 15, 3};
         case MapId::TitanFactory:
         default:
             return {Color::rgb(25, 22, 20), Color::rgb(60, 58, 54), Color::rgb(40, 38, 36),
-                    Color::rgb(90, 88, 80), Color::rgb(50, 48, 44), Color::rgb(255, 200, 60), 0.55f};
+                    Color::rgb(90, 88, 80), Color::rgb(50, 48, 44), Color::rgb(255, 200, 60), 0.55f, 1, 10, 0};
     }
 }
 

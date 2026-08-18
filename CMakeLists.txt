@@ -70,6 +70,8 @@ set(SBS_CLIENT_SOURCES
     Source/Engine/Renderer.cpp
     Source/Engine/AudioEngine.cpp
     Source/Engine/TextureGen.cpp
+    Source/Engine/Bitmap.cpp
+    Source/Engine/AssetPath.cpp
     Source/Game/UISystem.cpp
     Source/Game/ClientApp.cpp
 )
@@ -134,7 +136,7 @@ target_compile_definitions(sbswars-installer PRIVATE SBS_VERSION="${PROJECT_VERS
 add_executable(sbswars-tests Tests/test_all.cpp)
 target_compile_options(sbswars-tests PRIVATE ${SBS_WARNINGS})
 target_link_libraries(sbswars-tests PRIVATE sbs_core)
-target_compile_definitions(sbswars-tests PRIVATE SBS_VERSION="${PROJECT_VERSION}" SBS_HEADLESS=1)
+target_compile_definitions(sbswars-tests PRIVATE SBS_VERSION="${PROJECT_VERSION}" SBS_HEADLESS=1 SBS_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 set(SBS_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/Binaries)
 if(WIN32)

@@ -2,6 +2,7 @@
 
 #include "Engine/SBSMath.h"
 #include "Engine/SBSTypes.h"
+#include "Engine/Bitmap.h"
 #include "Game/World.h"
 #include "Game/SaveSystem.h"
 
@@ -9,6 +10,7 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#include <array>
 #include <vector>
 
 namespace sbs {
@@ -43,8 +45,13 @@ public:
 private:
     uint32_t pack(Color c) const;
     void put(int x, int y, Color c);
+    void putMasked(int x, int y, Color c);
+    void blit(const Bitmap& bmp, int dx, int dy, int dw, int dh, float shade = 1.0f);
     void renderColumn(const World& world, const PlayerState& view, int x);
     void renderSprites(const World& world, const PlayerState& view);
+    const Bitmap& wallTex(const World& world, int mx, int my, int side) const;
+    const Bitmap& charSprite(const PlayerState& p) const;
+    void loadArt();
 
     SDL_Renderer* renderer_ = nullptr;
     SDL_Texture* texture_ = nullptr;
@@ -55,6 +62,19 @@ private:
     int quality_ = 1;
     std::vector<Color> wallTex_;
     std::vector<Color> wallTexB_;
+    std::array<Bitmap, 16> walls_{};
+    std::array<Bitmap, 8> floors_{};
+    std::array<Bitmap, 9> weapons_{};
+    std::array<Bitmap, 8> pickups_{};
+    Bitmap sky_{};
+    Bitmap crosshair_{};
+    Bitmap burst_{};
+    Bitmap charAlliance_{};
+    Bitmap charAllianceFire_{};
+    Bitmap charDominion_{};
+    Bitmap charDominionFire_{};
+    Bitmap charEnemy_{};
+    Bitmap charDrone_{};
 };
 
 } // namespace sbs
