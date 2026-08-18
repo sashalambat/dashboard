@@ -35,4 +35,6 @@ Packaging/linux/make_installer.sh
 
 The installer payload is written to `Dist/`. See [Docs/BUILD_GUIDE.md](Docs/BUILD_GUIDE.md).
 
+Desktop shortcut: run `Dist/SBSWarsInstaller.run`. It installs the game and places **SBS Wars** on your Desktop.
+
 Unreal Engine 5.6 project files (`SBSWars.uproject`, `Source/SBSWars`) are included for a Windows high-fidelity pipeline. The playable shipping target in this repository is the native SBS Engine, which compiles without the Unreal Editor.

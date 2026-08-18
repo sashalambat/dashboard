@@ -25,10 +25,18 @@ Binaries land in `Binaries/`.
 ```bash
 Scripts/build.sh
 Packaging/linux/make_installer.sh
+bash Dist/SBSWarsInstaller.run
 ```
-Produces `Dist/SBSWarsInstaller.run` and copies `SBSWarsLauncher`.
 
-Windows: compile with MSVC + vcpkg SDL2, then compile `Packaging/windows/SBSWars.iss` with Inno Setup.
+The installer copies the game to `~/SBSWars` (override with a path argument), then creates:
+
+- **Desktop shortcut** — `~/Desktop/SBS Wars.desktop` (double-click to play)
+- **Applications menu** — `~/.local/share/applications/sbswars.desktop`
+- **Launcher** — `~/SBSWars/SBSWarsLauncher`
+
+GUI setup runs when a display is available. Force CLI with `SBS_INSTALLER_CLI=1`.
+
+Windows: compile `Packaging/windows/SBSWars.iss` with Inno Setup. Desktop and Start Menu shortcuts are enabled by default.
 
 ## Unreal Engine 5.6 (optional high-fidelity)
 1. Install UE 5.6 and Visual Studio 2022.

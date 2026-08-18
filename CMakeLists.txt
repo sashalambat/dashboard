@@ -74,20 +74,25 @@ target_compile_options(sbswars-launcher PRIVATE ${SBS_WARNINGS})
 target_link_libraries(sbswars-launcher PRIVATE sbs_client)
 target_compile_definitions(sbswars-launcher PRIVATE SBS_VERSION="${PROJECT_VERSION}")
 
+add_executable(sbswars-installer Source/Installer/Installer.cpp)
+target_compile_options(sbswars-installer PRIVATE ${SBS_WARNINGS})
+target_link_libraries(sbswars-installer PRIVATE sbs_client)
+target_compile_definitions(sbswars-installer PRIVATE SBS_VERSION="${PROJECT_VERSION}")
+
 add_executable(sbswars-tests Tests/test_all.cpp)
 target_compile_options(sbswars-tests PRIVATE ${SBS_WARNINGS})
 target_link_libraries(sbswars-tests PRIVATE sbs_core)
 target_compile_definitions(sbswars-tests PRIVATE SBS_VERSION="${PROJECT_VERSION}" SBS_HEADLESS=1)
 
 set(SBS_OUTPUT_DIR ${CMAKE_SOURCE_DIR}/Binaries)
-set_target_properties(sbswars sbswars-server sbswars-launcher sbswars-tests PROPERTIES
+set_target_properties(sbswars sbswars-server sbswars-launcher sbswars-installer sbswars-tests PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${SBS_OUTPUT_DIR}
 )
 
 enable_testing()
 add_test(NAME SBSWarsUnitTests COMMAND sbswars-tests)
 
-install(TARGETS sbswars sbswars-server sbswars-launcher
+install(TARGETS sbswars sbswars-server sbswars-launcher sbswars-installer
     RUNTIME DESTINATION bin)
 install(DIRECTORY Maps DESTINATION share/sbswars)
 install(DIRECTORY Content DESTINATION share/sbswars)
